@@ -2,6 +2,7 @@ import {CloudFormation, waitUntilStackCreateComplete, waitUntilStackUpdateComple
 import fs from 'fs/promises';
 const domainName = process.env.DOMAIN_NAME;
 const hostedZoneId = process.env.HOSTED_ZONE_ID;
+const queueUrl = process.env.SQS_QUEUE_URL;
 
 const cf = new CloudFormation();
 
@@ -70,6 +71,10 @@ async function main() {
             {
                 ParameterKey: 'HostedZoneId',
                 ParameterValue: hostedZoneId
+            },
+            {
+                ParameterKey: 'SqsQueueUrl',
+                ParameterValue: queueUrl
             }
         ],
         ['CAPABILITY_NAMED_IAM']

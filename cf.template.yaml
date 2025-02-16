@@ -8,7 +8,10 @@ Parameters:
   HostedZoneId:
     Type: String
     Description: "Route 53 Hosted Zone ID for that domain."
-
+  SqsQueueUrl:
+    Type: String
+    Description: "Queue url for tag bot"
+  
 Resources:
   SESDomainIdentity:
     Type: AWS::SES::EmailIdentity
@@ -89,6 +92,9 @@ Resources:
       Code:
         S3Bucket: "market-value-code"
         S3Key: email.zip
+      Environment:
+        Variables:
+          SQS_QUEUE_URL: !Ref SqsQueueUrl
 
   SQSPublishPolicy:
     Type: AWS::IAM::Policy
