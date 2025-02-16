@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SES domain verification (v2), inbound MX, Receipt Rule to invoke Lambda.
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: "Root domain (e.g. example.com) to verify and receive mail."
+  HostedZoneId:
+    Type: String
+    Description: "Route 53 Hosted Zone ID for that domain."
+
+Resources:
+  SESDomainIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref DomainName
+      MailFromAttributes:
+        MailFromDomain: !Sub "mail.${DomainName}"
+        BehaviorOnMxFailure: USE_DEFAULT_VALUE
+      DkimAttributes:
+        SigningEnabled: true
+      FeedbackAttributes:
+        EmailForwardingEnabled: false
+
+  RootDomainInboundMXRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: MX
+      TTL: 300
+      ResourceRecords:
+        - !Sub "10 inbound-smtp.${AWS::Region}.amazonaws.com."
+
+  SESReceiptRuleSet:
+    Type: AWS::SES::ReceiptRuleSet
+    Properties:
+      RuleSetName: "MyDomainReceiptRuleSet"
+
+  EmailLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "EmailProcessingLambdaRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: "LambdaReadEmailS3"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub "arn:aws:s3:::eladheller-com-emails/*"
+        - PolicyName: "LambdaCloudWatchLogs"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/EmailProcessingLambda:*"
+        - PolicyName: "LambdaSESAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                - ses:SendRawEmail
+                - ses:SendEmail
+                Resource: "*"
+
+
+  EmailProcessingLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: nodejs22.x
+      Handler: recieve-email/index.handler
+      Role: !GetAtt EmailLambdaRole.Arn
+      FunctionName: !Sub "EmailProcessingLambda"
+      Code:
+        S3Bucket: "market-value-code"
+        S3Key: email.zip
+  
+
+  LambdaPermissionForSES:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt EmailProcessingLambda.Arn
+      Principal: "ses.amazonaws.com"
+      SourceArn: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule/MyDomainReceiptRuleSet/ProcessDomainInboundEmail"
+
+Outputs:
+  SESDomainIdentityName:
+    Description: "SES verified domain name"
+    Value: !Ref SESDomainIdentity
+
+  LambdaName:
+    Description: "Lambda function name"
+    Value: !Ref EmailProcessingLambda
