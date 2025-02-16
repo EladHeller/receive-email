@@ -89,6 +89,20 @@ Resources:
       Code:
         S3Bucket: "market-value-code"
         S3Key: email.zip
+
+  SQSPublishPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: "LambdaSQSPublish"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: "arn:aws:sqs:us-east-1:662001163037:tag-bot-queue"
+      Roles:
+        - !Ref EmailLambdaRole
   
 
   LambdaPermissionForSES:

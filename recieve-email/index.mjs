@@ -1,9 +1,11 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import {simpleParser} from "mailparser";
 
 const s3 = new S3Client();
 const ses = new SESClient();
+const sqs = new SQSClient();
 
 const streamToString = async (stream) => {
   const chunks = [];
@@ -30,6 +32,15 @@ export const handler = async (event) => {
         // Stop processing rule set, dropping message
         return { statusCode: 500 };
     }
+    if (sesNotification.receipt.recipients[0] === 'sapper-bot@eladheller.com') {
+        sqs.send(new SendMessageCommand({
+            QueueUrl: process.env.SQS_QUEUE_URL,
+            MessageBody: JSON.stringify({
+                email: sesNotification.mail.commonHeaders,
+                messageId: sesNotification.mail.messageId,
+            }),
+        }));
+    }        
 
   console.log(`Fetching email from s3://${bucketName}/${objectKey}`);
 
