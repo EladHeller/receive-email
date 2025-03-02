@@ -1,22 +1,10 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
-import {simpleParser} from "mailparser";
-
-const s3 = new S3Client();
-const ses = new SESClient();
+import emailHandler from "./handler.mjs";
 const sqs = new SQSClient();
 
-const streamToString = async (stream) => {
-  const chunks = [];
-  for await (const chunk of stream) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks).toString("utf-8");
-};
-
-export const handler = async (event) => {
+export const handler = async (event, context) => {
   console.log("SES Event: ", JSON.stringify(event, null, 2));
+  console.log("SES Context: ", JSON.stringify(context, null, 2));
   if (!event.Records) {
     return;
   }
@@ -44,33 +32,17 @@ export const handler = async (event) => {
 
   console.log(`Fetching email from s3://${bucketName}/${objectKey}`);
 
-  // Fetch the email from S3
-  const { Body } = await s3.send(new GetObjectCommand({
-    Bucket: bucketName,
-    Key: objectKey
-  }));
-
-  // Convert the stream to a string
-  const rawEmail = await streamToString(Body);
-  console.log("Raw email content:\n", rawEmail);
-  const emailData = await simpleParser(rawEmail);
-  console.log({emailData});
-  await ses.send(new SendEmailCommand({
-    Source: 'me@eladheller.com',
-    Destination: {
-        ToAddresses: ['eladheller@gmail.com'],
-    },
-    ReplyToAddresses: [emailData.from.value[0].address],
-    Message: {
-      Body: {
-        Html: {
-          Data: emailData.html
-        },
-      },
-      Subject: {
-        Data: emailData.subject
+  const overrides = {
+    config: {
+      fromEmail: "me@eladheller.com",
+      emailBucket: bucketName,
+      emailKeyPrefix: "",
+      forwardMapping: {
+        "@eladheller.com": [
+          "eladheller@gmail.com",
+        ],
       }
-    },
-  }));
-  return { statusCode: 200 };
+    }
+  };
+  await emailHandler(event, context, overrides);
 };

@@ -1,4 +1,4 @@
-import {CloudFormation, waitUntilStackCreateComplete, waitUntilStackUpdateComplete} from '@aws-sdk/client-cloudformation';
+import {Capability, CloudFormation, waitUntilStackCreateComplete, waitUntilStackUpdateComplete} from '@aws-sdk/client-cloudformation';
 import fs from 'fs/promises';
 const domainName = process.env.DOMAIN_NAME;
 const hostedZoneId = process.env.HOSTED_ZONE_ID;
@@ -9,8 +9,8 @@ const cf = new CloudFormation();
 async function runTemplate(
     templatePath: string,
     name: string,
-    parameters?: any[],
-    capabilities?: any[],
+    parameters?: { ParameterKey: string; ParameterValue: string }[],
+    capabilities?: Capability[],
   ): Promise<void> {
     let stack;
     try {
@@ -30,7 +30,7 @@ async function runTemplate(
       await cf.createStack({
         StackName: name,
         TemplateBody: template,
-        Capabilities: capabilities,
+        Capabilities: capabilities ?? [] satisfies Capability[],
         Parameters: parameters,
       });
     } else {
@@ -62,23 +62,25 @@ async function runTemplate(
   }
 
 async function main() {
-    const templateBody = await fs.readFile('cf.template.yaml', 'utf8');
-    await runTemplate('cf.template.yaml', 'EmailReceiveStack', [
-            {
-                ParameterKey: 'DomainName',
-                ParameterValue: domainName
-            },
-            {
-                ParameterKey: 'HostedZoneId',
-                ParameterValue: hostedZoneId
-            },
-            {
-                ParameterKey: 'SqsQueueUrl',
-                ParameterValue: queueUrl
-            }
-        ],
-        ['CAPABILITY_NAMED_IAM']
-    );
+  if (!domainName || !hostedZoneId || !queueUrl) {
+    throw new Error('Missing environment variables');
+  }
+  await runTemplate('cf.template.yaml', 'EmailReceiveStack', [
+          {
+              ParameterKey: 'DomainName',
+              ParameterValue: domainName
+          },
+          {
+              ParameterKey: 'HostedZoneId',
+              ParameterValue: hostedZoneId
+          },
+          {
+              ParameterKey: 'SqsQueueUrl',
+              ParameterValue: queueUrl
+          }
+      ],
+      ['CAPABILITY_NAMED_IAM']
+  );
 }
 
 main().catch(console.error);

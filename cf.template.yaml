@@ -31,7 +31,7 @@ Resources:
       HostedZoneId: !Ref HostedZoneId
       Name: !Ref DomainName
       Type: MX
-      TTL: 300
+      TTL: '300'
       ResourceRecords:
         - !Sub "10 inbound-smtp.${AWS::Region}.amazonaws.com."
 
@@ -59,6 +59,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:GetObject
+                  - s3:PutObject
                 Resource:
                   - !Sub "arn:aws:s3:::eladheller-com-emails/*"
         - PolicyName: "LambdaCloudWatchLogs"
@@ -92,6 +93,9 @@ Resources:
       Code:
         S3Bucket: "market-value-code"
         S3Key: email.zip
+      Timeout: 360
+      MemorySize: 2048
+
       Environment:
         Variables:
           SQS_QUEUE_URL: !Ref SqsQueueUrl
