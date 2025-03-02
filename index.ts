@@ -18,7 +18,8 @@ async function runTemplate(
             StackName: name,
         });
     } catch (e) {
-        if (e.message.includes('does not exist')) {
+      const error = e as Error;
+        if (error.message.includes('does not exist')) {
             stack = { Stacks: [] };
         } else {
             throw e;
@@ -30,7 +31,7 @@ async function runTemplate(
       await cf.createStack({
         StackName: name,
         TemplateBody: template,
-        Capabilities: capabilities ?? [] satisfies Capability[],
+        Capabilities: capabilities ?? [],
         Parameters: parameters,
       });
     } else {
@@ -42,7 +43,8 @@ async function runTemplate(
           Parameters: parameters,
         });
       } catch (e) {
-        if (e.message === 'No updates are to be performed.') {
+        const error = e as Error;
+        if (error.message === 'No updates are to be performed.') {
           console.log(`template ${name} No updates are to be performed.`);
           return;
         }

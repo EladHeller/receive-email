@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node --env-file=.env index.ts && sh ./build.sh",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "type-check": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
