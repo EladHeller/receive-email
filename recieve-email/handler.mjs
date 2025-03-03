@@ -1,6 +1,6 @@
 "use strict";
 
-import { S3Client, CopyObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 const s3 = new S3Client({signatureVersion: 'v4'});
 const ses = new SESv2Client();
@@ -124,32 +124,6 @@ function transformRecipients(data) {
  * @return {object} - Promise resolved with data.
  */
  async function fetchMessage(data) {
-  // Copying email object to ensure read permission
-  data.log({
-    level: "info",
-    message: "Fetching email at s3://" + data.config.emailBucket + '/' +
-      data.config.emailKeyPrefix + data.email.messageId
-  });
-
-  try {
-    await s3.send(new CopyObjectCommand({
-      Bucket: data.config.emailBucket,
-      CopySource: data.config.emailBucket + '/' + data.config.emailKeyPrefix +
-        data.email.messageId,
-      Key: data.config.emailKeyPrefix + data.email.messageId,
-      ACL: 'private',
-      ContentType: 'text/plain',
-      StorageClass: 'STANDARD'
-    }));
-  } catch (err) {
-    data.log({
-      level: "error",
-      message: "CopyObjectCommand() returned error:",
-      error: err,
-      stack: err.stack
-    });
-    throw new Error("Error: Could not make readable copy of email.");
-  }
   try {
     const result = await s3.send(new GetObjectCommand({
       Bucket: data.config.emailBucket,
